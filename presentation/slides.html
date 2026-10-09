@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LangGraph Academy – Presentation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --fg:#e2e8f0; --mut:#94a3b8; --acc:#38bdf8; --acc2:#a78bfa; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:Segoe UI,Roboto,Arial,sans-serif; overflow:hidden; }
+  #deck { height:100%; display:flex; flex-direction:column; }
+  #stage { flex:1; display:flex; min-height:0; }
+  #slide { flex:1; padding:3vh 5vw; overflow:auto; }
+  .tag { color:var(--acc2); font-size:1.8vh; letter-spacing:.15em; text-transform:uppercase; }
+  h1 { font-size:5.5vh; margin:.5vh 0 2vh; color:var(--acc); }
+  h2 { font-size:3vh; color:var(--mut); font-weight:400; margin:0 0 2vh; }
+  ul { font-size:3vh; line-height:1.5; padding-left:3vh; margin:0; }
+  li { margin:.6vh 0; }
+  pre { background:#020617; border:1px solid #334155; border-radius:8px; padding:1.5vh 2vh; font-size:2.2vh; line-height:1.4; overflow:auto; color:#cbd5e1; margin:2vh 0 0; }
+  code { color:#fbbf24; }
+  .title-slide { display:flex; flex-direction:column; justify-content:center; height:100%; }
+  .title-slide h1 { font-size:8vh; }
+  #notes { width:34vw; background:var(--card); border-left:1px solid #334155; padding:3vh 2vw; overflow:auto; display:none; font-size:2.2vh; line-height:1.55; }
+  #notes.on { display:block; }
+  #notes h3 { margin-top:0; color:var(--acc2); }
+  #bar { height:5vh; display:flex; align-items:center; justify-content:space-between; padding:0 2vw; background:#020617; color:var(--mut); font-size:1.9vh; }
+  #prog { height:3px; background:var(--acc); width:0; transition:width .2s; }
+  button { background:#1e293b; color:var(--fg); border:1px solid #334155; border-radius:4px; padding:.4vh 1vw; cursor:pointer; }
+  #toc { position:fixed; inset:0; background:rgba(2,6,23,.96); display:none; padding:4vh 4vw; overflow:auto; z-index:5; }
+  #toc.on { display:block; }
+  #toc h3 { color:var(--acc2); margin:2vh 0 .5vh; }
+  #toc a { display:inline-block; margin:.4vh 1vw .4vh 0; padding:.4vh 1vw; background:var(--card); border-radius:4px; color:var(--fg); cursor:pointer; font-size:2vh; }
+</style>
+</head>
+<body>
+<div id="deck">
+  <div id="prog"></div>
+  <div id="stage"><div id="slide"></div><aside id="notes"></aside></div>
+  <div id="bar">
+    <span id="pos"></span>
+    <span>← → navigate · <b>N</b> speaker notes · <b>O</b> outline · <b>F</b> fullscreen</span>
+    <span><button onclick="go(-1)">Prev</button> <button onclick="go(1)">Next</button></span>
+  </div>
+</div>
+<div id="toc"></div>
+
+<script>
+const S = [];
+const T = (title, sub, notes) => S.push({ type:'title', title, sub, notes });
+const P = (mod, title, bullets, notes, code) => S.push({ mod, title, bullets, notes, code });
+
+/* ===================== INTRO ===================== */
+T('LangGraph', 'Building reliable, stateful agents — Modules 1 to 5',
+`<b>Goal (2 min):</b> Set the roadmap. We go from "what is LangGraph" to an agent with long-term memory.<br>
+Flow: M1 foundations → M2 state &amp; memory management → M3 human-in-the-loop &amp; control → M4 advanced graph patterns → M5 long-term memory → capstone demo.<br>
+Every topic maps to a notebook in the repo, so attendees can replay it afterwards.`);
+
+P('Roadmap', 'Agenda', [
+  'Module 1 – Foundations: graph, chain, router, agent, memory',
+  'Module 2 – State: schemas, reducers, trimming, summarization, persistence',
+  'Module 3 – Control: streaming, human feedback, breakpoints, time travel',
+  'Module 4 – Scale: parallelism, sub-graphs, map-reduce, research assistant',
+  'Module 5 – Long-term memory: Store, profile, collection',
+  'Capstone – Agent with long-term memory (live demo)'],
+`Walk through the agenda. Stress progression: each module adds one capability on top of the same StateGraph primitive.<br>
+Prereqs: Python, an OpenAI key, optional LangSmith key. Notebooks live in module-1 … module-5.`);
+
+/* ===================== MODULE 1 ===================== */
+T('Module 1', 'Foundations — Why LangGraph, simple graph, Studio, chain, router, agent, memory',
+`Module 1 builds the mental model. By the end: a ReAct-style agent with memory running in LangGraph Studio.<br>Notebooks: simple-graph, chain, router, agent, agent-memory, deployment.`);
+
+P('M1 · Why LangGraph', 'Why LangGraph?', [
+  'LLM apps need more than a single prompt: tools, loops, memory, humans',
+  'Pure chains are too rigid; fully autonomous agents are unreliable',
+  'LangGraph = control: you define the flow, the LLM decides inside it',
+  'Reliable agents: persistence, human-in-the-loop, streaming, debugging'],
+`<b>Key message:</b> reliability comes from controlling the flow. Spectrum: chain (fixed) → router (LLM picks one branch) → agent (LLM loops over tools). LangGraph lets you sit anywhere on this spectrum.<br>
+Ask the audience: "Where have your agents gone off the rails?" Use their answer to motivate checkpoints and breakpoints.`);
+
+P('M1 · How it works', 'How LangGraph works', [
+  '<b>State</b> – shared data passed through the graph',
+  '<b>Nodes</b> – Python functions: state in, state update out',
+  '<b>Edges</b> – which node runs next (normal or conditional)',
+  'Graph is compiled, then invoked / streamed',
+  'Inspired by message passing (Pregel): super-steps'],
+`Explain the three primitives. Nodes do the work, edges decide the order. A node returns a <i>partial update</i> of state, not the whole state.<br>
+START and END are special nodes. Compile validates the graph and optionally attaches a checkpointer.`);
+
+P('M1 · Simple graph', 'Simple graph', [
+  'State = TypedDict with one key',
+  'Three nodes, one conditional edge (random choice)',
+  'compile() → <code>graph.invoke({"graph_state": "Hi, this is Lance."})</code>'],
+`Live-run simple-graph.ipynb. Point out: each node overwrites <code>graph_state</code>. The conditional edge function returns the <i>name</i> of the next node.<br>
+Show the Mermaid rendering via <code>graph.get_graph().draw_mermaid_png()</code>.`,
+`class State(TypedDict):
+    graph_state: str
+
+def node_1(state): return {"graph_state": state["graph_state"] + " I am"}
+def decide_mood(state) -> Literal["node_2","node_3"]:
+    return "node_2" if random.random() < 0.5 else "node_3"
+
+b = StateGraph(State)
+b.add_node("node_1", node_1); b.add_node("node_2", node_2); b.add_node("node_3", node_3)
+b.add_edge(START, "node_1")
+b.add_conditional_edges("node_1", decide_mood)
+b.add_edge("node_2", END); b.add_edge("node_3", END)
+graph = b.compile()`);
+
+P('M1 · LangSmith Studio', 'LangSmith Studio', [
+  'Visual IDE for graphs: run, inspect, debug locally',
+  '<code>langgraph dev</code> starts local server + Studio UI',
+  'Config in <code>langgraph.json</code> (graphs, env, deps)',
+  'Traces in LangSmith: every node, LLM call, tool call',
+  'Foundation for deployment (module-1/deployment.ipynb)'],
+`Demo: run <code>langgraph dev</code> inside module-1/studio, open Studio, submit input, expand a trace. Show how a node's input/output is inspectable and how you can fork a run.<br>
+Mention that Studio is also where later modules (breakpoints, time-travel) get visual.`);
+
+P('M1 · Chain', 'Chain', [
+  'State = <code>MessagesState</code> (messages list + add_messages reducer)',
+  'Chat model with tools bound: <code>llm.bind_tools([multiply])</code>',
+  'Single node → model emits either text or a tool call',
+  'Tool call is just structured output — nothing executes yet'],
+`Show chain.ipynb. Concepts: messages (Human/AI/Tool), chat models, <code>bind_tools</code>, and MessagesState.<br>
+Emphasize: the model only <i>requests</i> a tool call. Execution is our job — that's the next slide.`,
+`llm_with_tools = llm.bind_tools([multiply])
+
+def tool_calling_llm(state: MessagesState):
+    return {"messages": [llm_with_tools.invoke(state["messages"])]}
+
+builder = StateGraph(MessagesState)
+builder.add_node("tool_calling_llm", tool_calling_llm)
+builder.add_edge(START, "tool_calling_llm"); builder.add_edge("tool_calling_llm", END)`);
+
+P('M1 · Router', 'Router', [
+  'Add a <code>ToolNode</code> to execute tools',
+  '<code>tools_condition</code>: tool call → tools, otherwise → END',
+  'The LLM <i>routes</i> between direct answer and tool use',
+  'Still one pass: tool result is not fed back to the model'],
+`Router = LLM chooses the path, graph executes it. Show asking "Hello" (goes to END) vs "Multiply 2 and 3" (goes to tools).<br>Transition: "What if the result should go back to the LLM?" → agent.`,
+`builder.add_node("tools", ToolNode([multiply]))
+builder.add_conditional_edges("tool_calling_llm", tools_condition)
+builder.add_edge("tools", END)`);
+
+P('M1 · Agent', 'Agent (ReAct)', [
+  '<b>Act</b> – model calls a tool',
+  '<b>Observe</b> – tool output goes back to the model',
+  '<b>Reason</b> – model decides next step, loops until done',
+  'One change from router: <code>tools → assistant</code> edge',
+  'System message sets behavior; multiple tools (add, multiply, divide)'],
+`The only structural change is an edge from tools back to the assistant, creating a cycle. This is the ReAct pattern.<br>
+Demo: "Add 3 and 4. Multiply the output by 2. Divide by 5" → multi-step tool chain. Mention recursion_limit as a safety net.`,
+`builder.add_node("assistant", assistant)
+builder.add_node("tools", ToolNode(tools))
+builder.add_edge(START, "assistant")
+builder.add_conditional_edges("assistant", tools_condition)
+builder.add_edge("tools", "assistant")   # the loop`);
+
+P('M1 · Agent memory', 'Agent memory', [
+  'Without memory each <code>invoke</code> starts fresh',
+  'Checkpointer saves state after every step',
+  '<code>MemorySaver</code> + <code>thread_id</code> = persistent conversation',
+  'Follow-up "multiply that by 2" now works'],
+`Show the failure first: ask a follow-up in a new invoke → model has no idea. Then compile with <code>checkpointer=MemorySaver()</code> and pass <code>config={"configurable": {"thread_id": "1"}}</code>.<br>
+Define: <b>thread</b> = one conversation; <b>checkpoint</b> = state snapshot per step. This is the base for modules 2 and 3.`,
+`memory = MemorySaver()
+react_graph = builder.compile(checkpointer=memory)
+config = {"configurable": {"thread_id": "1"}}
+react_graph.invoke({"messages": [HumanMessage("Add 3 and 4.")]}, config)
+react_graph.invoke({"messages": [HumanMessage("Multiply that by 2.")]}, config)`);
+
+/* ===================== MODULE 2 ===================== */
+T('Module 2', 'State — schema, reducers, multiple schemas, trimming/filtering, summarization, external memory',
+`Module 2 is about designing state and keeping conversations manageable. Notebooks: state-schema, state-reducers, multiple-schemas, trim-filter-messages, chatbot-summarization, chatbot-external-memory.`);
+
+P('M2 · State schema', 'State schema', [
+  'Schema defines the shape of graph state',
+  '<code>TypedDict</code> – simple, no runtime validation',
+  '<code>dataclass</code> – dot access, defaults',
+  '<code>Pydantic</code> – runtime validation, clear errors',
+  'Node returns partial update; unspecified keys unchanged'],
+`Show the same state three ways. The Pydantic demo: passing an invalid value (e.g. mood="angry" for Literal["happy","sad"]) raises a validation error at the node boundary.<br>
+Note: Literal type hints on TypedDict are NOT enforced at runtime.`,
+`@dataclass
+class DataclassState:
+    name: str
+    mood: Literal["happy","sad"]
+
+class PydanticState(BaseModel):
+    name: str
+    mood: str
+    @field_validator("mood")
+    @classmethod
+    def validate_mood(cls, v):
+        if v not in ["happy","sad"]: raise ValueError("Each mood must be either 'happy' or 'sad'")
+        return v`);
+
+P('M2 · Reducers', 'State reducers', [
+  'Default: node output <b>overwrites</b> the key',
+  'Reducer = how to merge updates: <code>Annotated[list[int], operator.add]</code>',
+  'Needed for parallel branches writing the same key',
+  '<code>add_messages</code>: append, or overwrite by message id',
+  'Custom reducers (e.g. handle None); <code>RemoveMessage</code> to delete'],
+`Show the INVALID_CONCURRENT_GRAPH_UPDATE error when two parallel nodes write to a key with no reducer. Fix by Annotated + operator.add.<br>
+MessagesState is simply a messages key with add_messages. <code>add_messages</code> also dedupes by id, enabling edits and deletions.`,
+`class State(TypedDict):
+    foo: Annotated[list[int], operator.add]
+
+def reduce_list(left, right):
+    return (left or []) + (right or [])`);
+
+P('M2 · Multiple schemas', 'Multiple schemas', [
+  'Private state: nodes can pass data not exposed in the graph output',
+  'Input / Output schemas filter what the graph accepts and returns',
+  '<code>StateGraph(OverallState, input_schema=..., output_schema=...)</code>',
+  'Keeps API surface clean; internal scratch state stays internal'],
+`Use case: your graph needs intermediate keys (e.g. retrieved docs) but the caller should only send a question and receive an answer.<br>
+Demo: invoke with the input schema, observe output contains only the output-schema keys.`,
+`builder = StateGraph(OverallState, input_schema=InputState, output_schema=OutputState)`);
+
+P('M2 · Trim & filter messages', 'Trim and filter messages', [
+  'Long chats cost tokens, latency, and hit context limits',
+  '<b>Filter</b>: <code>RemoveMessage</code> to drop old messages from state',
+  '<b>Slice</b>: pass only <code>messages[-1:]</code> to the model',
+  '<b>Trim</b>: <code>trim_messages(max_tokens=..., strategy="last")</code>',
+  'Filtering changes state; slicing/trimming only changes the model input'],
+`Compare the three options: what is stored vs what the LLM sees.<br>
+Trim by token count is the most general. Mention <code>token_counter=ChatOpenAI(...)</code> and <code>allow_partial=False</code>.`,
+`def filter_messages(state):
+    delete = [RemoveMessage(id=m.id) for m in state["messages"][:-2]]
+    return {"messages": delete}
+
+def chat_model_node(state):
+    msgs = trim_messages(state["messages"], max_tokens=100, strategy="last",
+                         token_counter=ChatOpenAI(model="gpt-4o"), allow_partial=False)
+    return {"messages": [llm.invoke(msgs)]}`);
+
+P('M2 · Summarization', 'Chatbot with summarization (internal memory)', [
+  'Keep a running <code>summary</code> field alongside messages',
+  'Condition: if more than 6 messages → summarize node',
+  'Summarize, then delete all but the last 2 messages',
+  'Next turns inject the summary as a system message',
+  'MemorySaver checkpointer keeps it per thread'],
+`Extend MessagesState with a <code>summary</code> key. The <code>should_continue</code> edge decides when to summarize. This gives long conversations without unbounded growth.<br>
+Demo: chat 7+ turns, then inspect <code>graph.get_state(config).values["summary"]</code>.`,
+`class State(MessagesState):
+    summary: str
+
+def should_continue(state) -> Literal["summarize_conversation", END]:
+    return "summarize_conversation" if len(state["messages"]) > 6 else END`);
+
+P('M2 · External memory', 'Chatbot with external memory', [
+  'MemorySaver is in-process: lost on restart',
+  'Use a DB-backed checkpointer: <code>SqliteSaver</code> (or Postgres)',
+  'Same graph, swap the checkpointer → persistent threads',
+  'Resume a thread days later after process restart',
+  'LangGraph Platform handles Postgres persistence for you'],
+`Show creating <code>sqlite3.connect("state_db/example.db", check_same_thread=False)</code>, restart the kernel, then re-create the graph and fetch the same thread — summary and messages are still there.<br>
+Bridge to module 5: checkpointers are <i>per-thread</i> memory; we will need <i>cross-thread</i> memory.`,
+`conn = sqlite3.connect("state_db/example.db", check_same_thread=False)
+memory = SqliteSaver(conn)
+graph = workflow.compile(checkpointer=memory)`);
+
+/* ===================== MODULE 3 ===================== */
+T('Module 3', 'Control — streaming, human feedback, breakpoints, time travel',
+`Module 3 introduces human-in-the-loop. Notebooks: streaming-interruption, breakpoints, edit-state-human-feedback, dynamic-breakpoints, time-travel.`);
+
+P('M3 · Streaming', 'Streaming', [
+  '<code>stream_mode="updates"</code> – only state changes per node',
+  '<code>stream_mode="values"</code> – full state after each step',
+  '<code>astream_events</code> – token-level streaming and node events',
+  'Filter on node name / event type to stream LLM tokens',
+  'Server API: <code>client.runs.stream(...)</code> with the same modes'],
+`Good UX needs streaming. Demo updates vs values on the same graph. Then <code>astream_events(version="v2")</code> and print <code>on_chat_model_stream</code> chunks for token streaming.<br>
+Also covers interruption of streaming runs via the SDK.`,
+`for chunk in graph.stream({"messages":[HumanMessage("hi")]}, config, stream_mode="updates"):
+    print(chunk)
+
+async for event in graph.astream_events(inputs, config, version="v2"):
+    if event["event"] == "on_chat_model_stream":
+        print(event["data"]["chunk"].content, end="")`);
+
+P('M3 · Breakpoints', 'Breakpoints (human approval)', [
+  'Pause the graph before a node: <code>interrupt_before=["tools"]</code>',
+  'Requires a checkpointer – state is saved at the pause',
+  'Resume with <code>graph.stream(None, thread)</code>',
+  'Pattern: approve a tool call before it executes'],
+`Use-case: an agent about to send an email or run a destructive action. Run until pause, show <code>graph.get_state(thread).next</code> → ('tools',). Ask the audience to approve, then continue by passing <code>None</code>.`,
+`graph = builder.compile(interrupt_before=["tools"], checkpointer=memory)
+for e in graph.stream(inputs, thread, stream_mode="values"): ...
+if input("Approve (yes/no): ") == "yes":
+    for e in graph.stream(None, thread, stream_mode="values"): ...`);
+
+P('M3 · Editing state', 'Editing state & human feedback', [
+  '<code>graph.update_state(thread, {"messages": [...]})</code> edits a checkpoint',
+  'Reducer applies: same message id → overwrite, new id → append',
+  'Add a dedicated <code>human_feedback</code> no-op node and interrupt before it',
+  'Use <code>as_node="human_feedback"</code> to act as that node',
+  'Lets a human steer the agent mid-run'],
+`Demo: at the breakpoint, replace the user message "Multiply 2 and 3" with "Multiply 3 and 3" using the same id → overwritten. Then resume.<br>
+Human feedback node: a placeholder node where we interrupt and inject feedback; the conditional edge afterwards routes based on the feedback.`,
+`graph.update_state(thread, {"messages": [HumanMessage(content="No, actually multiply 3 and 3!", id=target.id)]})
+graph.update_state(thread, {"user_feedback": feedback}, as_node="human_feedback")`);
+
+P('M3 · Dynamic breakpoints', 'Dynamic breakpoints', [
+  'Static breakpoints always pause; dynamic ones pause on a <b>condition</b>',
+  'Raise <code>NodeInterrupt("message")</code> inside a node',
+  'Example: input longer than 5 chars → interrupt',
+  'Fix state via <code>update_state</code> then resume, or inspect the reason',
+  'Agent Server / Studio show the interrupt reason'],
+`Compare: static = by node name at compile time; dynamic = by logic at run time. Demo with <code>step_2</code> raising NodeInterrupt when input is too long. Show <code>state.tasks[0].interrupts</code>.<br>
+Note: newer LangGraph versions also offer the <code>interrupt()</code> function for the same purpose.`,
+`def step_2(state: State) -> State:
+    if len(state["input"]) > 5:
+        raise NodeInterrupt(f"Received input longer than 5 characters: {state['input']}")
+    return state`);
+
+P('M3 · Time travel', 'Time travel', [
+  '<b>Browse</b>: <code>graph.get_state_history(thread)</code>',
+  '<b>Replay</b>: re-run from a checkpoint by passing its config',
+  '<b>Fork</b>: <code>update_state(checkpoint_config, ...)</code> creates a new branch',
+  'Great for debugging and "what-if" experimentation',
+  'Replayed steps before the checkpoint are not re-executed'],
+`Show listing all states, pick one, replay: nodes before the checkpoint are cached, nodes after re-run. Then fork: edit the message at that checkpoint → new checkpoint id → resume from it.<br>
+Emphasize that history is append-only; forking never destroys the original.`,
+`all_states = list(graph.get_state_history(thread))
+to_fork = all_states[-2]
+fork_cfg = graph.update_state(to_fork.config, {"messages":[HumanMessage("Multiply 5 and 3", id=...)]})
+graph.stream(None, fork_cfg, stream_mode="values")`);
+
+/* ===================== MODULE 4 ===================== */
+T('Module 4', 'Scale — parallelization, sub-graphs, map-reduce, research assistant',
+`Module 4 composes graphs into larger systems. Notebooks: parallelization, sub-graph, map-reduce, research-assistant.`);
+
+P('M4 · Parallelization', 'Parallelization (fan-out / fan-in)', [
+  'Multiple edges from one node → branches run in parallel (same super-step)',
+  'Fan-in node waits for all branches',
+  'Reducer needed for shared keys (<code>operator.add</code>)',
+  'Control merge order with a custom reducer / sorting',
+  'Example: retrieve from Wikipedia + web search, then answer'],
+`Faster and enables multi-source retrieval. Remind them of the reducer slide: parallel writes need a reducer.<br>
+Demo: node_a → (b, c) → d. Show the state with both contributions combined. Tavily + Wikipedia example if API keys are available.`,
+`builder.add_edge(START, "search_web")
+builder.add_edge(START, "search_wikipedia")
+builder.add_edge("search_web", "generate_answer")
+builder.add_edge("search_wikipedia", "generate_answer")`);
+
+P('M4 · Sub-graphs', 'Sub-graphs', [
+  'A compiled graph can be a node in another graph',
+  'Shared state keys communicate between parent and child',
+  'Private keys per sub-graph avoid collisions',
+  'Example: two sub-graphs (summary + failure analysis) → one report',
+  'Studio shows sub-graphs; drill in with the xray option'],
+`Modularity: teams own different sub-graphs. Explain key overlap: sub-graph reads/writes the keys it shares with the parent; other keys stay private.<br>
+Demo: log analysis app: Failure Analysis sub-graph + Question Summarization sub-graph, merged by the parent.`,
+`entry_builder.add_node("question_summarization", qs_builder.compile())
+entry_builder.add_node("failure_analysis", fa_builder.compile())`);
+
+P('M4 · Map-reduce', 'Map-reduce', [
+  '<b>Map</b>: split work into N independent tasks at run time',
+  '<code>Send("node", {payload})</code> from a conditional edge',
+  '<b>Reduce</b>: aggregate outputs with a reducer / final node',
+  'Example: generate jokes for each subject, pick the best',
+  'Number of branches unknown until runtime'],
+`Parallelization needs a fixed topology; map-reduce handles dynamic fan-out. <code>Send</code> lets each branch have its own state payload.<br>
+Demo: topic → subjects (structured output) → one joke per subject (Send) → best joke (structured output).`,
+`def continue_to_jokes(state):
+    return [Send("generate_joke", {"subject": s}) for s in state["subjects"]]
+
+builder.add_conditional_edges("generate_topics", continue_to_jokes, ["generate_joke"])`);
+
+P('M4 · Research assistant', 'Build your own assistant: Research assistant', [
+  '<b>Analysts</b> generated from a topic, with human feedback loop',
+  '<b>Interviews</b> run in parallel (map via <code>Send</code>), each a sub-graph',
+  'Interview = question → search (web + wiki) → answer → section',
+  'Parallel report sections written, then intro + conclusion',
+  'Final report compiled; human-in-the-loop on analysts'],
+`This combines everything: structured output (analysts), human feedback (interrupt_before), sub-graphs (interview), map-reduce (Send), parallelization (two search sources), and reducers.<br>
+Walk the diagram: create_analysts → human_feedback → conduct_interview ×N → write_report / write_intro / write_conclusion → finalize_report.<br>
+Run it for a topic such as "Benefits of adopting LangGraph as an agent framework".`);
+
+/* ===================== MODULE 5 ===================== */
+T('Module 5', 'Long-term memory — short vs long term, Store, memory schema (profile &amp; collection)',
+`Module 5 moves beyond a single thread: remembering the user across conversations. Notebooks: memory_store, memoryschema_profile, memoryschema_collection, memory_agent.`);
+
+P('M5 · Short vs long term', 'Short-term vs long-term memory', [
+  '<b>Short-term</b>: checkpointer, scoped to a <code>thread_id</code>',
+  '<b>Long-term</b>: Store, shared <b>across threads</b>, scoped to a <code>user_id</code>',
+  'Types: semantic (facts), episodic (experiences), procedural (instructions)',
+  'Write: "hot path" (during chat) vs background',
+  'Compile with both: <code>checkpointer=...</code> and <code>store=...</code>'],
+`Whiteboard two circles. Checkpointer = notebook of this conversation. Store = what the assistant knows about you forever.<br>
+Semantic ~ profile/facts, episodic ~ past actions, procedural ~ rules for how to behave (we will update instructions in the capstone).`);
+
+P('M5 · Memory store', 'LangGraph Store', [
+  'Key-value with <b>namespace</b> tuples: <code>(user_id, "memories")</code>',
+  '<code>store.put(namespace, key, value)</code> / <code>get</code> / <code>search</code>',
+  'Values are JSON dicts; search can be semantic when embeddings configured',
+  '<code>InMemoryStore</code> for dev; DB-backed in production',
+  'Nodes receive the store: <code>def node(state, config, store: BaseStore)</code>'],
+`Demo memory_store.ipynb: put a memory, search the namespace, show the Item fields (value, key, namespace, created_at, updated_at).<br>
+Chat with memory: node reads memories from namespace for user_id in config, injects into the system prompt, and writes new memories after the turn.`,
+`user_id = "1"
+namespace = (user_id, "memories")
+store.put(namespace, str(uuid.uuid4()), {"memory": "I like to bike around San Francisco"})
+memories = store.search(namespace)`);
+
+P('M5 · Profile schema', 'Memory schema: Profile', [
+  'One structured document per user (name, location, job, interests…)',
+  'Pydantic schema + <b>Trustcall</b> extractor',
+  'Trustcall <i>patches</i> the existing JSON (no information loss, cheaper)',
+  'Pros: easy to read; Cons: must keep the document consistent',
+  'Pass existing profile in as <code>{"existing": ...}</code>'],
+`Why a schema: free-form strings are hard to update. Why Trustcall: asking an LLM to regenerate the whole profile risks dropping fields; Trustcall emits JSON patches.<br>
+Demo: tell the bot your name and city; later add "I like biking" and see the profile updated rather than replaced.`,
+`class UserProfile(BaseModel):
+    user_name: str; user_location: str; interests: list[str]
+
+extractor = create_extractor(model, tools=[UserProfile], tool_choice="UserProfile")
+result = extractor.invoke({"messages": msgs, "existing": {"UserProfile": existing_profile}})`);
+
+P('M5 · Collection schema', 'Memory schema: Collection', [
+  'Many small memory documents instead of one profile',
+  'Scales better; each memory = one item in the store',
+  'Trustcall with <code>enable_inserts=True</code>: update <i>and</i> insert',
+  'Pros: less information loss; Cons: search &amp; dedupe complexity',
+  'Choose: Profile for known fields, Collection for open-ended knowledge'],
+`Compare: Profile (single doc, patch) vs Collection (many docs, update + insert). Show the Spy listener that reveals which tool calls were PatchDoc (updates) vs new Memory (inserts).<br>
+Run the notebook example: "I went to Tartine and ate a croissant" → new memory; "Japan this winter" → another.`,
+`class Memory(BaseModel):
+    content: str = Field(description="The main content of the memory.")
+
+extractor = create_extractor(model, tools=[Memory], tool_choice="Memory", enable_inserts=True)
+result = extractor.invoke({"messages": msgs, "existing": existing_memories})`);
+
+/* ===================== CAPSTONE ===================== */
+P('Capstone', 'Build an agent with long-term memory', [
+  'Task assistant that remembers across conversations',
+  '<b>Profile</b> (semantic) + <b>ToDo collection</b> + <b>Instructions</b> (procedural)',
+  'Router: model calls <code>UpdateMemory</code> (user / todo / instructions)',
+  '<code>MemorySaver</code> (thread) + <code>InMemoryStore</code> (cross-thread)',
+  'Runnable code: <code>presentation/long_term_memory_agent.py</code>'],
+`Show architecture on the next slide. Run the script: chat in thread 1, tell it your name and a todo. Then start thread 2 with the same user_id and ask "What do I need to do?" — it remembers.<br>
+This mirrors module-5/memory_agent.ipynb (task_mAIstro) as a standalone script.`);
+
+P('Capstone', 'Architecture', [],
+`Walk the graph. <b>task_mAIstro</b> loads three memory types from the store into the system prompt, then the LLM answers and optionally calls UpdateMemory. A conditional edge routes to one of three writers; each writes to the store and returns a tool message, then control returns to the assistant.<br>
+Namespaces: ("profile", user_id), ("todo", user_id), ("instructions", user_id).`,
+`START → task_mAIstro ─┬─ (no tool call) ──────────────► END
+                      └─ UpdateMemory ─┬─ user         → update_profile      ─┐
+                                       ├─ todo         → update_todos        ─┼─► task_mAIstro
+                                       └─ instructions → update_instructions ─┘
+
+Store namespaces
+  ("profile", user_id)       → Profile document     (Trustcall patch)
+  ("todo", user_id)          → ToDo collection      (Trustcall insert + update)
+  ("instructions", user_id)  → free-text rules      (LLM rewrite)`);
+
+P('Capstone', 'Live demo script', [
+  'Thread 1: "Hi, I\'m Naren, I live in Boston and work as an engineer."',
+  'Thread 1: "Add a todo: book flights to Japan by next month."',
+  'Thread 1: "When you add todos, always include time estimates."',
+  'Switch: <code>/thread 2</code> (same user) → "What\'s on my todo list?"',
+  'Inspect memory with <code>/store</code>'],
+`Run <code>python presentation/long_term_memory_agent.py</code>; use <code>/thread N</code> to switch threads and <code>/store</code> to dump memory. Highlight that thread 2 has an empty message history but still answers correctly — proof that memory is long-term.`);
+
+P('Recap', 'Key takeaways', [
+  'Graphs = state + nodes + edges; control the flow',
+  'Reducers and schemas make state safe',
+  'Checkpointers = short-term; Store = long-term',
+  'Breakpoints, state editing, time travel = human control',
+  'Sub-graphs, <code>Send</code>, parallelism = scale',],
+`Recap each module in one sentence. Invite questions. Point to the repo notebooks as the lab material. Module 6 covers deploying to the Agent Server — a natural follow-up session.`);
+
+/* ===================== RENDERER ===================== */
+let i = 0;
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+function render() {
+  const s = S[i];
+  let h;
+  if (s.type === 'title') {
+    h = `<div class="title-slide"><h1>${s.title}</h1><h2>${s.sub}</h2></div>`;
+  } else {
+    h = `<div class="tag">${s.mod}</div><h1>${s.title}</h1>`;
+    if (s.bullets.length) h += `<ul>${s.bullets.map(b => `<li>${b}</li>`).join('')}</ul>`;
+    if (s.code) h += `<pre>${esc(s.code)}</pre>`;
+  }
+  $('slide').innerHTML = h;
+  $('notes').innerHTML = `<h3>Speaker notes — slide ${i+1}</h3>${s.notes}`;
+  $('pos').textContent = `${i+1} / ${S.length}`;
+  $('prog').style.width = ((i+1)/S.length*100) + '%';
+  history.replaceState(null, '', '#' + (i+1));
+}
+function go(d) { i = Math.max(0, Math.min(S.length-1, i+d)); render(); }
+function jump(n) { i = n; $('toc').classList.remove('on'); render(); }
+
+function buildToc() {
+  let h = '<h1>Outline</h1>', last = '';
+  S.forEach((s, n) => {
+    const grp = s.type === 'title' ? s.title : s.mod.split(' · ')[0];
+    if (grp !== last) { h += `<h3>${grp}</h3>`; last = grp; }
+    h += `<a onclick="jump(${n})">${n+1}. ${s.title}</a>`;
+  });
+  $('toc').innerHTML = h;
+}
+
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') go(1);
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(-1);
+  else if (e.key === 'Home') jump(0);
+  else if (e.key === 'End') jump(S.length-1);
+  else if (k === 'n') $('notes').classList.toggle('on');
+  else if (k === 'o' || e.key === 'Escape') $('toc').classList.toggle('on');
+  else if (k === 'f') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+});
+
+buildToc();
+const h0 = parseInt(location.hash.slice(1), 10);
+if (h0 >= 1 && h0 <= S.length) i = h0 - 1;
+render();
+</script>
+</body>
+</html>
