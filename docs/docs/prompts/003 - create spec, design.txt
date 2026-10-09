@@ -1,0 +1,3 @@
+create a formal spec, document requirements spec first
+
+design doc based on this

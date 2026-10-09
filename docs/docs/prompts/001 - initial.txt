@@ -1,0 +1,22 @@
+I want to create a technical spec for creating a agentic AI application using langgraph.
+
+i may have to deploy this in azure environment, but for now i want to test it in my local machines in a docker container or best way to do.
+
+this agents application is a backbone for processing the CRM - phoenix product ticketing system used by agency admins (customers), my internal members - users create their tickets in the azure hosted website and from there i need to drive the agent to run in the background and take actions.
+
+defect handling - analysis, finding closest match, proposing solutions based on the recent fixes
+
+get a pulse of a customer - review all th open CRM defects, pending enhancements, open interface developments for that agency and prepare a proper summary
+
+create KB if needed when a CRM ticket is assigned back to customer - based on what information is available in the ticket and if that is not already a KB created for the same.
+
+integration into chatbot/teams - to get status ona particular ticket
+
+linking CRM tickets based on similarity
+
+and more agnetic behaviours.
+
+what are the technical/design/specifications to be added if i have to utlize langgraph, data exisit in SQL server i can create a separate API to retireve a tool call or MCP based on the needs
+
+ask me more clarifying questions if any
+
