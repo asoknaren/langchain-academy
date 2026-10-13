@@ -1,0 +1,20 @@
+flow works: requirements/spec → design → tasks. You already use it for Phoenix CRM (.kiro/specs/phoenix-crm-agents/). I'd adjust it in three ways.
+
+1. Pick one project first, not all five.
+Specs for five projects up front will go stale. I'd start with the P5 skeleton plus P1:
+
+P5 skeleton: Postgres checkpointer and store, tracing, eval harness.
+P1: the support agent, which touches the most course concepts.
+
+2. Keep each spec short and testable.
+
+Requirements: user stories with acceptance criteria. Draw them from your doc's user story, baseline, MVP and guardrails, e.g. "zero unapproved refunds".
+Design: state schema, graph, node contracts, memory namespaces, interrupt points, tool interfaces (mocked or real), error edges, eval plan. Your doc has the sketch; the design makes it exact.
+Tasks: small, ordered and each verifiable. Build the thinnest end-to-end version first (router → one specialist → checkpointer), then add HITL, memory and evals. Each task should have a test.
+
+3. Decide these before the design.
+
+Which model provider and which data (synthetic or a public dataset).
+Whether tools are mocked or real.
+Whether the target is a notebook or a deployable service. This affects the platform work.
+I'd also build a tiny eval set (about 20 tickets) before the agent, so every change is measured against the baseline.
