@@ -12,4 +12,5 @@ dependencies = [
     "langgraph-cli[inmem]",
     "langgraph",
     "langgraph-prebuilt",
+    "trustcall>=0.0.39",
 ]
